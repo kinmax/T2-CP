@@ -4,9 +4,9 @@
 
 /*--------------------------- INCLUDES ---------------------------*/
 
-#include "math.h"
-#include "time.h"
-#include "stdio.h"
+#include <math.h>
+#include <time.h>
+#include <stdio.h>
 #include "mpi.h"
 
 /*---------------------------- DEFINES ---------------------------*/
@@ -150,10 +150,10 @@ unsigned int fat ( int number ) {
                                 
 int main(int argc, char **argv) {
 
-    int i, j, k, l, m, w, x, proc_index;
+    int i, j, k, l, m, w, kills;
     int my_rank, proc_n;
     double t1, t2;
-    SOLUTION received;
+    SOLUTION received; // solução recebida (pelo mestre ou pelo escravo)
 
     MPI_Status status;
 
@@ -162,20 +162,19 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &proc_n);
 
-    if(my_rank == 0)
+    if(my_rank == 0) // sou o mestre
     {
-        t1 = MPI_Wtime();
+        t1 = MPI_Wtime(); // capturo o tempo de início
         SOLUTION initial_solution;
         for(i = 0; i < NUM_CITIES; i++)
         {
-            initial_solution[i] = i;
+            initial_solution[i] = i; // inicializo a solução inicial {0, 1, 2, 3, ...}
         }
-        double test_result = 0L;
-        SOLUTION workbag[NUM_CITIES*(NUM_CITIES-1)];
-        SOLUTION best;
-        double best_cost = 100000L;
-        double returned_cost;
-        w = 0;
+        SOLUTION workbag[NUM_CITIES*(NUM_CITIES-1)]; // saco de trabalho
+        SOLUTION best; // melhor solução até o momento
+        double best_cost = 100000L; // inicialização do melhor custo
+        double returned_cost; // custo da solução retornada pelo escravo
+        w = 0; // inicializo o índice do saco de trabalho
         // montando o workbag
         for(i = 0; i < NUM_CITIES; i++)
         {
@@ -183,7 +182,7 @@ int main(int argc, char **argv) {
             {
                 if(i == j) continue;
                 workbag[w][0] = initial_solution[i];
-                workbag[w][1] = initial_solution[j];
+                workbag[w][1] = initial_solution[j]; // montando as duas primeiras cidades
                 l = 2;
                 m = 0;
                 while(l < NUM_CITIES)
@@ -193,7 +192,7 @@ int main(int argc, char **argv) {
                         m++;
                         continue;
                     }
-                    workbag[w][l] = m;
+                    workbag[w][l] = m; // o resto vai com o que sobrou
                     l++;
                     m++;
                 }
@@ -205,43 +204,38 @@ int main(int argc, char **argv) {
         w = 0;
         for(i = 1; i < proc_n; i++)
         {
-            if(w == NUM_CITIES*(NUM_CITIES-1)) break;
+            if(w == NUM_CITIES*(NUM_CITIES-1)) break; // se já acabou o saco de trabalho, sai
             MPI_Send(&workbag[w], NUM_CITIES, MPI_INT, i, 0, MPI_COMM_WORLD);
             w++;
         }
-        x = 0;
-        proc_index = 1;
-        while(1)
+        // recebendo resposta dos escravos e enviando mais trabalho se ainda tiver
+        kills = 0; // inicializo o contador de kills
+        while(kills < proc_n-1) // se ainda não matei todos os escravos
         {
-            MPI_Recv(&received, NUM_CITIES, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            x++;
-            returned_cost = calc_total_dist(received);
-            if(returned_cost < best_cost)
+            MPI_Recv(&received, NUM_CITIES, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recebe resposta de um escravo
+            returned_cost = calc_total_dist(received); // calcula o custo do caminho retornado
+            if(returned_cost < best_cost) // se o escravo retornou um caminho menor do que o que melhor que tenho até agora
             {
                 for(i = 0; i < NUM_CITIES; i++)
                 {
-                    best[i] = received[i];
+                    best[i] = received[i]; // o meu melhor passa a ser o retornado pelo escravo
                 }
-                best_cost = returned_cost;
+                best_cost = returned_cost; // o melhor custo passa a ser o custo do caminho retornado
             }
-            if(w == NUM_CITIES*(NUM_CITIES-1) && x == w)
+            if(w < NUM_CITIES*(NUM_CITIES-1)) // se ainda não enviei todo o saco de trabalho
+            {
+                MPI_Send(&workbag[w], NUM_CITIES, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD); // envio mais uma tarefa ao escravo que me retornou
+                w++; // incremento o índice do saco de trabalho
+            }
+            else // senão
             {
                 int empty_message = 0;
-                for(i = 1; i < proc_n; i++)
-                {
-                    MPI_Send(&empty_message, 1, MPI_INT, i, KILL, MPI_COMM_WORLD);
-                }
-                break;
+                MPI_Send(&empty_message, 1, MPI_INT, status.MPI_SOURCE, KILL, MPI_COMM_WORLD); // mando a mensagem de kill para o escravo
+                kills++; // incremento o contador de kills
             }
-            if(w < NUM_CITIES*(NUM_CITIES-1))
-            {
-                MPI_Send(&workbag[w], NUM_CITIES, MPI_INT, proc_index, 0, MPI_COMM_WORLD);
-                proc_index++;
-                if(proc_index == proc_n) proc_index = 1;
-                w++;
-            }
+            
         }
-        t2 = MPI_Wtime();
+        t2 = MPI_Wtime(); // capturo o tempo de fim
         printf("\nMinimal for brute force solution: %3.2f Km roundtrip.\n\n", best_cost );
         //print_indexes (final_solution);   
         print_names (best);
@@ -252,13 +246,13 @@ int main(int argc, char **argv) {
     {
         while(1)
         {
-            MPI_Recv(&received, NUM_CITIES, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            if(status.MPI_TAG == KILL)
+            MPI_Recv(&received, NUM_CITIES, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recebe tarefa do mestre
+            if(status.MPI_TAG == KILL) // se for a mensagem de kill
             {
-                break;
+                break; // sai
             }
-            perm_solution(received, 2, NUM_CITIES-1);
-            MPI_Send(&final_solution, NUM_CITIES, MPI_INT, 0, 0, MPI_COMM_WORLD);
+            perm_solution(received, 2, NUM_CITIES-1); // faz a solução para a solução inicial do mestre, sem mexer nas 2 primeiras cidades
+            MPI_Send(&final_solution, NUM_CITIES, MPI_INT, 0, 0, MPI_COMM_WORLD); // envia solução encontrada ao mestre
         }
     }
 
