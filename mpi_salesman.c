@@ -11,7 +11,7 @@
 
 /*---------------------------- DEFINES ---------------------------*/
 
-#define NUM_CITIES 8
+#define NUM_CITIES 12
 #define KILL 1
 
 /*-------------------------- STRUCTURES --------------------------*/
@@ -38,12 +38,12 @@ CITY cities[NUM_CITIES] = {
                            {"Freiburg" , { -36,-108}},
                            {"Dresden"  , { 331, 197}},
                            {"Berlin"   , { 311, 344}},
-                           {"Hannover" , {  81, 331}}
-                           /*{"Hamburg"  , {  95, 450}},
+                           {"Hannover" , {  81, 331}},
+                           {"Hamburg"  , {  95, 450}},
                            {"Stuttgart", {  47, -22}},
                            {"Ulm",       { 100, -58}},
-                           {"Nurenberg", { 164,  42}},  // 12 - 25.00 seconds to calculate solutions
-                           {"Bremmen",   {  25, 403}},  // 13 - 303.00 seconds to calculate solutions (5 minutes)
+                           {"Nurenberg", { 164,  42}}  // 12 - 25.00 seconds to calculate solutions
+                           /*{"Bremmen",   {  25, 403}},  // 13 - 303.00 seconds to calculate solutions (5 minutes)
                            {"Dortmund",  { -58, 244}}   // 14 - 4258.00 seconds to calculate solutions (70 minutes)*/
                           }; // horizontal and vertical distances in Km
    
